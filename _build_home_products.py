@@ -7,7 +7,7 @@ import io, re
 from decimal import Decimal, ROUND_HALF_UP
 
 INDEX = r"C:\Users\Vetz\Desktop\panini-offline\index.html"
-HIMG = "./Panini America Online Store _ Shop Sports Trading Cards & Memorabilia!_files/"
+HIMG = "./assets-store/"
 
 src = io.open(INDEX, "r", encoding="utf-8", errors="replace").read()
 PREFIX = src[:src.index("</header>") + len("</header>")]

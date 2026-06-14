@@ -6,7 +6,7 @@ and customer reviews). Also repoints the FIFA grid cards at these pages."""
 import io, re
 
 FIFA = r"C:\Users\Vetz\Desktop\panini-offline\fifa-world-cup-2026.html"
-IMG = "./FIFA World Cup 2026 Official Sticker Collection _ Panini America_files/"
+IMG = "./assets-fifa/"
 
 src = io.open(FIFA, "r", encoding="utf-8", errors="replace").read()
 hclose = src.index("</header>") + len("</header>")

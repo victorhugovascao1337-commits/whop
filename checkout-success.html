@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Order Confirmed | Panini America</title>
+<link rel="icon" href="fav-icon-1.png">
+<style>
+  body{ margin:0; font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:#1a1a1a; background:#fafafa; }
+  .topbar{ display:flex; align-items:center; justify-content:center; padding:18px; border-bottom:1px solid #e3e3e3; background:#fff; }
+  .topbar img{ height:32px; }
+  .card{ max-width:560px; margin:48px auto; background:#fff; border:1px solid #e6e6e6; border-radius:14px; padding:40px 32px; text-align:center; }
+  .check{ width:72px; height:72px; border-radius:50%; background:#1e7e34; display:flex; align-items:center; justify-content:center; margin:0 auto 22px; }
+  h1{ font-size:24px; margin:0 0 10px; }
+  p{ color:#555; font-size:15px; line-height:1.5; }
+  .pid{ font-family:monospace; background:#f2f3f5; border-radius:6px; padding:3px 8px; font-size:13px; }
+  .btn{ display:inline-block; margin-top:24px; background:#111; color:#fff; text-decoration:none; padding:14px 26px; border-radius:8px; font-weight:700; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <img src="./Panini America Online Store _ Shop Sports Trading Cards &amp; Memorabilia!_files/panini_logo.cf5a332aa63692f572bfcc1072ec5fa4.svg" alt="Panini America">
+</div>
+<div class="card">
+  <div class="check"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></div>
+  <h1>Thank you! Your order is confirmed.</h1>
+  <p>We've received your payment and emailed you a receipt. Your Panini order is now being prepared.</p>
+  <p id="ref"></p>
+  <a class="btn" id="trackLink" href="track.html">Track your order</a>
+  <div style="margin-top:14px;"><a href="/" style="color:#555;font-size:14px;">Continue shopping</a></div>
+</div>
+<script>
+  // Stripe redirects back with ?payment_intent=...&redirect_status=succeeded
+  var p = new URLSearchParams(location.search);
+  var pi = p.get('payment_intent');
+  var order = p.get('order');
+  var status = p.get('redirect_status');
+  if(order){
+    document.getElementById('ref').innerHTML = 'Order number: <span class="pid">' + order + '</span>';
+    document.getElementById('trackLink').href = 'track.html?order=' + encodeURIComponent(order);
+  } else if(pi){ document.getElementById('ref').innerHTML = 'Order reference: <span class="pid">' + pi + '</span>'; }
+  if(status && status !== 'succeeded'){
+    document.querySelector('h1').textContent = 'Payment ' + status;
+    document.querySelector('.check').style.background = '#c0392b';
+  }
+</script>
+</body>
+</html>

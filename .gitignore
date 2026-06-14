@@ -1,0 +1,7 @@
+# local dev / scratch (não vão pro deploy)
+_stripe_key.txt
+_stripe_key.txt.txt
+_stripe_resp.json
+.claude/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Track your order | Panini America</title>
+<link rel="icon" href="fav-icon-1.png">
+<style>
+  body{ margin:0; font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:#1a1a1a; background:#fafafa; }
+  .topbar{ display:flex; align-items:center; justify-content:center; padding:16px; border-bottom:1px solid #e3e3e3; background:#fff; }
+  .topbar img{ height:30px; }
+  .wrap{ max-width:620px; margin:36px auto; padding:0 16px; }
+  h1{ font-size:24px; text-transform:uppercase; letter-spacing:.02em; margin:0 0 6px; }
+  .sub{ color:#6b7177; font-size:14px; margin:0 0 24px; }
+  .card{ background:#fff; border:1px solid #e6e6e6; border-radius:14px; padding:24px; }
+  label{ display:block; font-size:12px; color:#6b7177; text-transform:uppercase; letter-spacing:.06em; margin:0 0 6px; }
+  .inp{ width:100%; height:46px; border:1px solid #c9cccf; border-radius:8px; padding:0 12px; font-size:15px; box-sizing:border-box; outline:none; }
+  .inp:focus{ border-color:#2b2f8a; box-shadow:0 0 0 1px #2b2f8a; }
+  .mb{ margin-bottom:14px; }
+  .btn{ width:100%; height:50px; background:#111; color:#fff; border:0; border-radius:8px; font-size:15px; font-weight:700; cursor:pointer; }
+  .btn:disabled{ opacity:.6; }
+  #msg{ color:#c0392b; font-size:14px; margin-top:12px; min-height:18px; }
+  /* result */
+  #result{ display:none; margin-top:8px; }
+  .ord{ font-family:monospace; font-size:13px; background:#f2f3f5; border-radius:6px; padding:3px 8px; }
+  .steps{ display:flex; justify-content:space-between; margin:26px 0 8px; position:relative; }
+  .steps::before{ content:""; position:absolute; top:15px; left:8%; right:8%; height:3px; background:#e3e3e3; z-index:0; }
+  .stepbar{ position:absolute; top:15px; left:8%; height:3px; background:#1e7e34; z-index:1; transition:width .3s; }
+  .step{ position:relative; z-index:2; text-align:center; flex:1; }
+  .dot{ width:32px; height:32px; border-radius:50%; background:#e3e3e3; color:#fff; display:flex; align-items:center; justify-content:center; margin:0 auto 8px; font-weight:700; }
+  .step.done .dot{ background:#1e7e34; }
+  .step .lbl{ font-size:12px; text-transform:uppercase; color:#6b7177; }
+  .step.done .lbl{ color:#1a1a1a; font-weight:700; }
+  .row{ display:flex; justify-content:space-between; font-size:14px; padding:8px 0; border-top:1px solid #eee; }
+  .track-box{ background:#f4f5f7; border-radius:10px; padding:14px; margin-top:16px; font-size:14px; }
+  .track-box a{ color:#2b2f8a; font-weight:700; }
+  .badge-cancel{ background:#c0392b; color:#fff; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:700; text-transform:uppercase; }
+  .item{ display:flex; justify-content:space-between; font-size:13px; color:#444; padding:4px 0; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <img src="./Panini America Online Store _ Shop Sports Trading Cards &amp; Memorabilia!_files/panini_logo.cf5a332aa63692f572bfcc1072ec5fa4.svg" alt="Panini America">
+</div>
+<div class="wrap">
+  <h1>Track your order</h1>
+  <p class="sub">Enter your order number and email to see the latest status.</p>
+  <div class="card">
+    <div id="form">
+      <div class="mb"><label>Order number</label><input class="inp" id="order" placeholder="e.g. 1e763dd0-..."></div>
+      <div class="mb"><label>Email</label><input class="inp" id="email" type="email" placeholder="you@example.com"></div>
+      <button class="btn" id="trackBtn">Track order</button>
+      <div id="msg"></div>
+    </div>
+    <div id="result">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <span>Order <span class="ord" id="r-id"></span></span>
+        <span id="r-cancel"></span>
+      </div>
+      <div class="steps" id="steps">
+        <div class="stepbar" id="stepbar" style="width:0;"></div>
+        <div class="step" data-step="1"><div class="dot">1</div><div class="lbl">Paid</div></div>
+        <div class="step" data-step="2"><div class="dot">2</div><div class="lbl">Shipped</div></div>
+        <div class="step" data-step="3"><div class="dot">3</div><div class="lbl">Delivered</div></div>
+      </div>
+      <div class="track-box" id="r-track" style="display:none;"></div>
+      <div id="r-items" style="margin-top:16px;"></div>
+      <div class="row" style="border-top:2px solid #ddd;font-weight:700;"><span>Total</span><span id="r-total"></span></div>
+      <button class="btn" id="againBtn" style="margin-top:18px;background:#fff;color:#111;border:1px solid #ccc;">Track another order</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var SUPABASE_URL='https://finpdwsggcphzqypnebg.supabase.co';
+var SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpbnBkd3NnZ2NwaHpxeXBuZWJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzOTk4MzYsImV4cCI6MjA5Njk3NTgzNn0.C9Rq6QcTHi_vKbMLXnyeoS52LzfMbxPO8SY8pq2RoYM';
+
+var p=new URLSearchParams(location.search);
+if(p.get('order')) document.getElementById('order').value=p.get('order');
+if(p.get('email')) document.getElementById('email').value=p.get('email');
+
+var STEP={ paid:1, shipped:2, delivered:3 };
+function money(c){ return '$'+(c/100).toFixed(2); }
+
+async function track(){
+  var btn=document.getElementById('trackBtn'), msg=document.getElementById('msg');
+  msg.textContent=''; btn.disabled=true; btn.textContent='Tracking...';
+  try{
+    var r=await fetch(SUPABASE_URL+'/functions/v1/track-order',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',apikey:SUPABASE_ANON,Authorization:'Bearer '+SUPABASE_ANON},
+      body:JSON.stringify({ order_id:document.getElementById('order').value.trim(), email:document.getElementById('email').value.trim() })
+    });
+    var d=await r.json();
+    if(!r.ok||d.error){ msg.textContent=d.error||('Error '+r.status); return; }
+    show(d);
+  }catch(e){ msg.textContent='Error: '+e.message; }
+  finally{ btn.disabled=false; btn.textContent='Track order'; }
+}
+
+function show(d){
+  document.getElementById('form').style.display='none';
+  document.getElementById('result').style.display='block';
+  document.getElementById('r-id').textContent=d.id;
+  document.getElementById('r-total').textContent=money(d.total_cents);
+  // steps
+  var lvl=STEP[d.status]||0;
+  document.querySelectorAll('.step').forEach(function(s){ s.classList.toggle('done', parseInt(s.getAttribute('data-step'))<=lvl); });
+  document.getElementById('stepbar').style.width = lvl>=3?'84%':(lvl>=2?'42%':'0');
+  var cancel=document.getElementById('r-cancel');
+  cancel.innerHTML = d.status==='canceled' ? '<span class="badge-cancel">Canceled</span>' : '';
+  // tracking
+  var tb=document.getElementById('r-track');
+  if(d.tracking_number){
+    tb.style.display='block';
+    var link=d.tracking_url?('<a href="'+d.tracking_url+'" target="_blank" rel="noopener">Track package &rarr;</a>'):'';
+    tb.innerHTML='<strong>'+(d.carrier||'Carrier')+'</strong> &middot; Tracking: <strong>'+d.tracking_number+'</strong><br>'+link;
+  } else { tb.style.display='none'; }
+  // items
+  var html='';
+  (d.items||[]).forEach(function(it){ html+='<div class="item"><span>'+it.quantity+'× '+it.name+'</span><span>'+money(it.unit_price_cents*it.quantity)+'</span></div>'; });
+  document.getElementById('r-items').innerHTML=html;
+}
+
+document.getElementById('trackBtn').addEventListener('click',track);
+document.getElementById('againBtn').addEventListener('click',function(){
+  document.getElementById('result').style.display='none';
+  document.getElementById('form').style.display='block';
+});
+// auto-track if order came in the URL
+if(p.get('order')) track();
+</script>
+</body>
+</html>

@@ -65,7 +65,7 @@ async function sendFacebook(order: any, items: any[]) {
   } catch (_) { /* não bloqueia */ }
 }
 
-async function sendUtmify(order: any, items: any[]) {
+async function sendUtmify(order: any, items: any[], isTest: boolean) {
   if (!UTMIFY_API_TOKEN) return;
   const tp = order.tracking_params || {};
   const now = fmtUTC(new Date());
@@ -88,7 +88,7 @@ async function sendUtmify(order: any, items: any[]) {
       utm_medium: tp.utm_medium || null, utm_content: tp.utm_content || null, utm_term: tp.utm_term || null,
     },
     commission: { totalPriceInCents: order.total_cents, gatewayFeeInCents: 0, userCommissionInCents: order.total_cents },
-    isTest: false, // aparece no painel da UTMify (em Stripe teste isso conta como venda; apague depois se quiser)
+    isTest: isTest, // automático: pagamento real (live) conta; pagamento de teste do Stripe não polui
   };
   try {
     await fetch("https://api.utmify.com.br/api-credentials/orders", {
@@ -125,7 +125,7 @@ serve(async (req) => {
       const order = (await (await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}&select=*`, { headers: sb })).json())[0];
       const items = await (await fetch(`${SUPABASE_URL}/rest/v1/order_items?order_id=eq.${orderId}&select=name,quantity,unit_price_cents,products(slug)`, { headers: sb })).json();
       // 3) dispara Facebook + UTMify
-      if (order) await Promise.allSettled([sendFacebook(order, items), sendUtmify(order, items)]);
+      if (order) await Promise.allSettled([sendFacebook(order, items), sendUtmify(order, items, !pi.livemode)]);
     }
   }
 

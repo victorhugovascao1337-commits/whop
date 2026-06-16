@@ -338,7 +338,7 @@ async function payViaBackend(){
   return d;
 }
 try {
-  var ece = elements.create('expressCheckout');
+  var ece = elements.create('expressCheckout', { paymentMethods: { link: 'never' } });
   ece.on('confirm', async function(){
     var m = document.getElementById('pay-msg'); m.className=''; m.textContent='';
     var sub = await elements.submit();
@@ -447,6 +447,18 @@ btn.addEventListener('click', async function(){
   forceColor();
   [600,1500,3000,5000].forEach(function(ms){ setTimeout(forceColor, ms); });   // cobre o Link que carrega depois
   document.addEventListener('input', forceColor, true);
+
+  /* impede o Stripe Link de injetar valor "fantasma" nos campos de nome */
+  ['fname','lname'].forEach(function(id){
+    var el=document.getElementById(id); if(!el) return;
+    var typed=false;
+    el.addEventListener('keydown', function(){ typed=true; });
+    el.addEventListener('input', function(){ typed=true; });
+    var n=0, iv=setInterval(function(){
+      if(++n>20){ clearInterval(iv); return; }          // age por ~10s (enquanto o Link carrega)
+      if(!typed && el.value){ el.value=''; }             // limpa o que o Link preencheu sozinho
+    }, 500);
+  });
 })();
 </script>
 </body>

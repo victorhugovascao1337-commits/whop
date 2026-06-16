@@ -371,30 +371,43 @@ def build_main(p):
         thumbs = '<div class="d-flex gap-2 mt-3 flex-wrap">%s</div>' % cells
 
     cur = ("From " if p["frm"] else "") + "$" + p["price"]
-    price_html = '<span class="fs-2 ff_made_medium text-neutral-900">%s</span>' % esc(cur)
-    if p["compare"]:
-        price_html += '<span class="fs-4 text-decoration-line-through text-gray-4 ff_made">$%s</span>' % esc(p["compare"])
-    if p["save"]:
-        price_html += '<span class="badge bg-primary text-white ff_akira_bold ls-2 px-3 py-2">SAVE %s</span>' % esc(p["save"])
+    price_html = '<span id="pdp-price" class="fs-2 ff_made_medium text-neutral-900">%s</span>' % esc(cur)
+    price_html += '<span id="pdp-compare" class="fs-4 text-decoration-line-through text-gray-4 ff_made"%s>%s</span>' % (
+        "" if p["compare"] else ' style="display:none"', ("$" + esc(p["compare"])) if p["compare"] else "")
+    price_html += '<span id="pdp-save" class="badge bg-primary text-white ff_akira_bold ls-2 px-3 py-2"%s>%s</span>' % (
+        "" if p["save"] else ' style="display:none"', ("SAVE " + esc(p["save"])) if p["save"] else "")
 
     # Sold out removed from every product -> always purchasable
     stock = '<p class="ff_akira_bold text-uppercase ls-2 text-success mb-3">In stock</p>'
     btn_label, btn_cls = "Add to cart", "btn btn-primary"
 
     variants_html = ""
+    variant_script = ""
     if p["variants"]:
         opts = ""
         for i, v in enumerate(p["variants"]):
             active = " active border-primary text-primary" if i == 0 else " border-gray-4 text-neutral-900"
             opts += (
-                '<button type="button" class="btn border ff_made_medium fs-7 text-uppercase px-3 py-2 rounded-2%s" '
-                'onclick="for(var n of this.parentNode.children){n.classList.remove(\'active\',\'border-primary\',\'text-primary\');'
-                'n.classList.add(\'border-gray-4\',\'text-neutral-900\');}'
-                'this.classList.add(\'active\',\'border-primary\',\'text-primary\');'
-                'this.classList.remove(\'border-gray-4\',\'text-neutral-900\');">%s</button>'
-            ) % (active, esc(v))
+                '<button type="button" data-mult="%d" class="pdp-variant btn border ff_made_medium fs-7 text-uppercase px-3 py-2 rounded-2%s" '
+                'onclick="pickVariant(this)">%s</button>'
+            ) % (i + 1, active, esc(v))
         variants_html = ('<div class="mb-4"><p class="ff_made fw-light text-uppercase fs-7 ls-4 mb-2">Size</p>'
                          '<div class="d-flex gap-2 flex-wrap">%s</div></div>') % opts
+        # base = preço por unidade; desconto por volume: 2x = 10% off, 3x = 15% off
+        variant_script = (
+            '<script>(function(){var BASE=%s,COMPARE=%s,D={1:1,2:0.90,3:0.85};'
+            'function m(n){return "$"+n.toFixed(2);}'
+            'window.pickVariant=function(b){var L=document.querySelectorAll(".pdp-variant");'
+            'L.forEach(function(x){x.classList.remove("active","border-primary","text-primary");x.classList.add("border-gray-4","text-neutral-900");});'
+            'b.classList.add("active","border-primary","text-primary");b.classList.remove("border-gray-4","text-neutral-900");'
+            'var k=parseInt(b.getAttribute("data-mult"))||1;var pay=+(BASE*k*(D[k]||1)).toFixed(2);'
+            'var st=COMPARE>0?+(COMPARE*k).toFixed(2):(k>1?+(BASE*k).toFixed(2):0);'
+            'document.getElementById("pdp-price").textContent=m(pay);'
+            'var c=document.getElementById("pdp-compare");if(st>0){c.textContent=m(st);c.style.display="";}else{c.style.display="none";}'
+            'var s=document.getElementById("pdp-save");if(st>0){s.textContent="SAVE "+Math.round((st-pay)/st*100)+"%%";s.style.display="";}else{s.style.display="none";}'
+            'document.querySelectorAll("[data-add-to-cart]").forEach(function(z){z.setAttribute("data-price",pay);z.setAttribute("data-mult",k);z.setAttribute("data-variant",b.textContent.trim());});'
+            '};var f=document.querySelector(".pdp-variant");if(f)pickVariant(f);})();</script>'
+        ) % (p["price"], p["compare"] if p["compare"] else "0")
 
     top = u'''<main class="main_blk" id="main-content" role="main" style="min-height: 90vh;">{style}
 <div class="container py_spacer py-4 py-lg-5">
@@ -418,10 +431,11 @@ def build_main(p):
 <input type="number" id="pdp-qty" min="1" value="1" class="form-control rounded-2" style="max-width:120px;" aria-label="Quantity"></div>
 {upsell}
 <div class="d-grid gap-2">
-<button type="button" aria-label="{label}" class="{btncls} btn-large w-100" style="min-height:48px;" data-add-to-cart data-slug="{slug}" data-name="{t}" data-price="{dprice}" data-img="{main}">{label}</button>
-<button type="button" aria-label="Buy it now" class="btn btn-outline-primary btn-large w-100" style="min-height:48px;" data-add-to-cart data-buy-now data-slug="{slug}" data-name="{t}" data-price="{dprice}" data-img="{main}">Buy it now</button>
+<button type="button" aria-label="{label}" class="{btncls} btn-large w-100" style="min-height:48px;" data-add-to-cart data-slug="{slug}" data-name="{t}" data-price="{dprice}" data-img="{main}" data-mult="1">{label}</button>
+<button type="button" aria-label="Buy it now" class="btn btn-outline-primary btn-large w-100" style="min-height:48px;" data-add-to-cart data-buy-now data-slug="{slug}" data-name="{t}" data-price="{dprice}" data-img="{main}" data-mult="1">Buy it now</button>
 </div>
 {accordions}
+{variant_script}
 </div>
 </div>
 </div>
@@ -430,7 +444,8 @@ def build_main(p):
 </main>'''.format(t=t, main=main_src, thumbs=thumbs, price=price_html, stock=stock,
                   variants=variants_html, label=btn_label, btncls=btn_cls, ext=p["ext"], rich=RICH,
                   style=STYLE, accordions=build_accordions(), related=build_related(p["slug"], products),
-                  slug=p["slug"], dprice=p["price"], upsell=build_upsell(p["slug"], products, IMG))
+                  slug=p["slug"], dprice=p["price"], upsell=build_upsell(p["slug"], products, IMG),
+                  variant_script=variant_script)
     return top
 
 

@@ -73,6 +73,7 @@
             price: parseFloat(btn.getAttribute('data-price')) || 0,
             img: btn.getAttribute('data-img') || '',
             variant: btn.getAttribute('data-variant') || '',
+            mult: parseInt(btn.getAttribute('data-mult')) || 1,
             qty: qty
           });
           if (window.Track) Track.addToCart({ id: btn.getAttribute('data-slug'), name: btn.getAttribute('data-name'), value: (parseFloat(btn.getAttribute('data-price')) || 0) * qty });

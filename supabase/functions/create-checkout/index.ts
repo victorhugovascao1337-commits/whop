@@ -49,14 +49,19 @@ serve(async (req) => {
     const bySlug: Record<string, any> = {};
     for (const p of products) bySlug[p.slug] = p;
 
+    // desconto por volume (variante): 2x = 10% off, 3x = 15% off
+    const BULK: Record<number, number> = { 1: 1, 2: 0.90, 3: 0.85 };
     let subtotal = 0;
     const lineItems: any[] = [];
     for (const it of items) {
       const p = bySlug[String(it.slug)];
       if (!p) return json({ error: `Invalid product: ${it.slug}` }, 400);
       const qty = Math.max(1, parseInt(it.quantity) || 1);
-      subtotal += p.price_cents * qty;
-      lineItems.push({ product_id: p.id, name: p.name, unit_price_cents: p.price_cents, quantity: qty });
+      const mult = Math.min(3, Math.max(1, parseInt(it.mult) || 1));
+      const unit = Math.round(p.price_cents * mult * (BULK[mult] || 1));
+      subtotal += unit * qty;
+      const name = it.variant ? `${p.name} - ${it.variant}` : p.name;
+      lineItems.push({ product_id: p.id, name, unit_price_cents: unit, quantity: qty });
     }
     const shippingCents = SHIPPING[shipping] ?? 0;
     const total = subtotal + shippingCents;

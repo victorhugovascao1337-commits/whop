@@ -357,7 +357,7 @@ btn.addEventListener('click', async function(){
   if(sub.error){ msg.className='err'; msg.textContent = sub.error.message; btn.disabled=false; btn.textContent='Complete Purchase'; return; }
 
   try {
-    var lineItems = cart.map(function(i){ return { slug: i.slug, quantity: i.qty }; });
+    var lineItems = cart.map(function(i){ return { slug: i.slug, quantity: i.qty, mult: i.mult || 1, variant: i.variant || '' }; });
     var r = await fetch(CREATE_INTENT_URL, {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON, 'Authorization':'Bearer ' + SUPABASE_ANON },

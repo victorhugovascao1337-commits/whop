@@ -365,6 +365,7 @@ async function mountWhop(){
     el.setAttribute('data-whop-checkout-session', d.sessionId);
     el.setAttribute('data-whop-checkout-return-url', location.origin + '/checkout-success.html?order=' + d.orderId);
     el.setAttribute('data-whop-checkout-theme', 'light');
+    el.setAttribute('data-whop-checkout-locale', 'en'); // checkout em inglês (igual ao resto do site)
     el.style.minHeight = '420px';
     box.appendChild(el);
 

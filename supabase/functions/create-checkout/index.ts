@@ -97,11 +97,10 @@ serve(async (req) => {
       method: "POST",
       headers: { Authorization: `Bearer ${WHOP_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        company_id: WHOP_COMPANY_ID,
         mode: "payment",
-        currency: "USD",
         plan: {
-          currency: "USD",
+          company_id: WHOP_COMPANY_ID,
+          currency: "usd", // Whop exige minúsculo, dentro do plan
           initial_price: total / 100, // Whop usa o valor em dólares, não em centavos
           plan_type: "one_time",
           title: "mayvul Store order " + orderId,
@@ -111,7 +110,8 @@ serve(async (req) => {
     });
     const cfg = await wr.json();
     if (!wr.ok || !cfg.id) {
-      return json({ error: cfg.error || cfg.message || "Whop checkout error", detail: cfg }, 400);
+      const werr = (cfg.error && (cfg.error.message || cfg.error)) || cfg.message || "Whop checkout error";
+      return json({ error: String(werr), detail: cfg }, 400);
     }
     const sessionId = cfg.id;          // ch_...
     const planId = cfg.plan?.id;       // plan_...

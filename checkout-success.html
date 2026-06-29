@@ -20,7 +20,7 @@
 </head>
 <body>
 <div class="topbar">
-  <img src="./assets-store/mayvul_logo.webp" alt="Panini America">
+  <img src="./assets-store/panini_logo.cf5a332aa63692f572bfcc1072ec5fa4.svg" alt="Panini America">
 </div>
 <div class="card">
   <div class="check"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></div>
@@ -46,8 +46,8 @@
   }
 
   /* Facebook Purchase (navegador) — mesmo event_id do servidor (dedup) */
-  var SUPABASE_URL='https://finpdwsggcphzqypnebg.supabase.co';
-  var SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpbnBkd3NnZ2NwaHpxeXBuZWJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzOTk4MzYsImV4cCI6MjA5Njk3NTgzNn0.C9Rq6QcTHi_vKbMLXnyeoS52LzfMbxPO8SY8pq2RoYM';
+  var SUPABASE_URL='https://hrqoeurocdpfjfikxojq.supabase.co';
+  var SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhycW9ldXJvY2RwZmpmaWt4b2pxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0OTA4MTMsImV4cCI6MjA5NzA2NjgxM30.JIqtEPdULuXzyHWy-RCREJ65JZtVO4oJYTofKfVOyFg';
   if(order && (!status || status==='succeeded')){
     fetch(SUPABASE_URL+'/functions/v1/track-order',{ method:'POST', headers:{'Content-Type':'application/json',apikey:SUPABASE_ANON,Authorization:'Bearer '+SUPABASE_ANON}, body:JSON.stringify({ order_id:order }) })
       .then(function(r){ return r.json(); })

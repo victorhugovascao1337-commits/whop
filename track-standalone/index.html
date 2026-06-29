@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Track your order | Panini America</title>
-<link rel="icon" href="fav-icon-1.png">
+<link rel="icon" href="https://paniniamerica.vercel.app/fav-icon-1.png">
 <style>
   :root{ --blue:#2563eb; --ink:#1a1a1a; --muted:#6b7177; --line:#e6e8eb; --bg:#f6f7f9; }
   *{ box-sizing:border-box; }
@@ -59,7 +59,7 @@
 </style>
 </head>
 <body>
-<div class="topbar"><img src="./assets-store/panini_logo.cf5a332aa63692f572bfcc1072ec5fa4.svg" alt="Panini America"></div>
+<div class="topbar"><img src="https://paniniamerica.vercel.app/assets-store/panini_logo.cf5a332aa63692f572bfcc1072ec5fa4.svg" alt="Panini America"></div>
 <div class="wrap">
   <h1>Track your order</h1>
   <p class="sub">Enter your order number and email to see the latest status.</p>
@@ -142,7 +142,7 @@ if(p.get('email')) document.getElementById('email').value=p.get('email');
 function money(c){ return '$'+(c/100).toFixed(2); }
 function fixImg(src){
   if(!src) return '';
-  return src.replace('FIFA World Cup 2026 Official Sticker Collection _ Panini America_files','assets-fifa')
+  return 'https://paniniamerica.vercel.app/' + src.replace('FIFA World Cup 2026 Official Sticker Collection _ Panini America_files','assets-fifa')
            .replace('Panini America Online Store _ Shop Sports Trading Cards &amp; Memorabilia!_files','assets-store')
            .replace('Panini America Online Store _ Shop Sports Trading Cards & Memorabilia!_files','assets-store');
 }

@@ -103,7 +103,7 @@ serve(async (req) => {
           currency: "usd", // Whop exige minúsculo, dentro do plan
           initial_price: total / 100, // Whop usa o valor em dólares, não em centavos
           plan_type: "one_time",
-          title: "mayvul Store order " + orderId,
+          title: "Order " + String(orderId).slice(0, 8), // Whop: título máx 30 chars
         },
         metadata: { order_id: String(orderId), shipping: String(shipping) },
       }),

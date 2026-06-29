@@ -1,11 +1,12 @@
-// Supabase Edge Function: create-checkout
+// Supabase Edge Function: create-checkout (Whop)
 // 1) Recebe o carrinho (slugs + quantidades) e busca o PREÇO REAL no banco
 // 2) Cria um pedido (status 'pending') em orders + order_items
-// 3) Cria um PaymentIntent no Stripe com metadata.order_id e devolve o clientSecret
-// Secrets: STRIPE_SECRET_KEY  (SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são automáticos)
+// 3) Cria um checkout configuration no Whop (plano inline) e devolve planId + sessionId
+// Secrets: WHOP_API_KEY, WHOP_COMPANY_ID  (SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são automáticos)
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
-const STRIPE_SECRET = Deno.env.get("STRIPE_SECRET_KEY")!;
+const WHOP_API_KEY = Deno.env.get("WHOP_API_KEY")!;
+const WHOP_COMPANY_ID = Deno.env.get("WHOP_COMPANY_ID")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SHIPPING: Record<string, number> = { standard: 0, express: 2000 };
@@ -91,25 +92,38 @@ serve(async (req) => {
       body: JSON.stringify(lineItems.map((li) => ({ ...li, order_id: orderId }))),
     });
 
-    // 2) PaymentIntent com order_id na metadata
-    const body = new URLSearchParams();
-    body.set("amount", String(total));
-    body.set("currency", "usd");
-    body.set("automatic_payment_methods[enabled]", "true");
-    if (email) body.set("receipt_email", String(email));
-    body.set("metadata[order_id]", String(orderId));
-    body.set("metadata[shipping]", String(shipping));
-    body.set("description", "mayvul Store order " + orderId);
-
-    const sr = await fetch("https://api.stripe.com/v1/payment_intents", {
+    // 2) Whop checkout configuration (plano inline) com order_id na metadata
+    const wr = await fetch("https://api.whop.com/api/v1/checkout_configurations", {
       method: "POST",
-      headers: { Authorization: `Bearer ${STRIPE_SECRET}`, "Content-Type": "application/x-www-form-urlencoded" },
-      body,
+      headers: { Authorization: `Bearer ${WHOP_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        company_id: WHOP_COMPANY_ID,
+        mode: "payment",
+        currency: "USD",
+        plan: {
+          currency: "USD",
+          initial_price: total / 100, // Whop usa o valor em dólares, não em centavos
+          plan_type: "one_time",
+          title: "mayvul Store order " + orderId,
+        },
+        metadata: { order_id: String(orderId), shipping: String(shipping) },
+      }),
     });
-    const pi = await sr.json();
-    if (pi.error) return json({ error: pi.error.message }, 400);
+    const cfg = await wr.json();
+    if (!wr.ok || !cfg.id) {
+      return json({ error: cfg.error || cfg.message || "Whop checkout error", detail: cfg }, 400);
+    }
+    const sessionId = cfg.id;          // ch_...
+    const planId = cfg.plan?.id;       // plan_...
 
-    return json({ clientSecret: pi.client_secret, orderId, amount: total, subtotal, shipping: shippingCents });
+    // guarda a referência do Whop no pedido
+    await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`, {
+      method: "PATCH",
+      headers: { ...sbHeaders, Prefer: "return=minimal" },
+      body: JSON.stringify({ whop_session_id: sessionId }),
+    });
+
+    return json({ planId, sessionId, orderId, amount: total, subtotal, shipping: shippingCents });
   } catch (e) {
     return json({ error: String(e) }, 500);
   }

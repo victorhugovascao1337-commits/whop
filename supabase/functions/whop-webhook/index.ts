@@ -1,12 +1,12 @@
-// Supabase Edge Function: stripe-webhook
-// Valida a assinatura do Stripe, marca o pedido como 'paid' e dispara:
+// Supabase Edge Function: whop-webhook
+// Valida a assinatura do Whop (Standard Webhooks), marca o pedido como 'paid' e dispara:
 //  - Facebook Conversions API (Purchase, dedup pelo event_id = order.id)
 //  - UTMify Orders API (pedido pago + UTMs)
 // Deploy com "Verify JWT" DESLIGADO.
-// Secrets: STRIPE_WEBHOOK_SECRET, FB_CAPI_TOKEN, UTMIFY_API_TOKEN
+// Secrets: WHOP_WEBHOOK_SECRET (ws_...), FB_CAPI_TOKEN, UTMIFY_API_TOKEN
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
-const WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
+const WEBHOOK_SECRET = Deno.env.get("WHOP_WEBHOOK_SECRET") || "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const FB_PIXEL_ID = "28181409881448447";                 // público
@@ -16,16 +16,39 @@ const UTMIFY_API_TOKEN = Deno.env.get("UTMIFY_API_TOKEN") || "";
 const sb = { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}`, "Content-Type": "application/json" };
 const enc = new TextEncoder();
 
-async function verify(rawBody: string, sigHeader: string): Promise<boolean> {
-  if (!sigHeader) return false;
-  const parts: Record<string, string> = {};
-  for (const kv of sigHeader.split(",")) { const i = kv.indexOf("="); if (i > 0) parts[kv.slice(0, i).trim()] = kv.slice(i + 1).trim(); }
-  const t = parts["t"], v1 = parts["v1"];
-  if (!t || !v1) return false;
-  const key = await crypto.subtle.importKey("raw", enc.encode(WEBHOOK_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const mac = await crypto.subtle.sign("HMAC", key, enc.encode(`${t}.${rawBody}`));
-  const hex = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
-  return hex === v1;
+function hexToBytes(hex: string): Uint8Array {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+  return out;
+}
+
+async function hmacB64(keyBytes: Uint8Array, msg: string): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", key, enc.encode(msg));
+  return btoa(String.fromCharCode(...new Uint8Array(mac)));
+}
+
+// Verificação Standard Webhooks (esquema usado pelo Whop).
+// Tentamos algumas formas de derivar a chave a partir do secret ws_... para máxima compatibilidade.
+async function verify(rawBody: string, h: Record<string, string>): Promise<boolean> {
+  const id = h["webhook-id"]; const ts = h["webhook-timestamp"]; const sigHeader = h["webhook-signature"];
+  if (!id || !ts || !sigHeader || !WEBHOOK_SECRET) return false;
+  const signed = `${id}.${ts}.${rawBody}`;
+
+  // assinaturas recebidas: "v1,xxxx v1,yyyy" (espaço separa, vírgula separa versão da assinatura)
+  const provided = sigHeader.split(" ").map((p) => (p.includes(",") ? p.split(",")[1] : p));
+
+  // chaves candidatas
+  const afterPrefix = WEBHOOK_SECRET.startsWith("ws_") ? WEBHOOK_SECRET.slice(3) : WEBHOOK_SECRET;
+  const candidates: Uint8Array[] = [enc.encode(WEBHOOK_SECRET)]; // bytes do secret completo (recomendado pelo doc)
+  if (/^[0-9a-fA-F]+$/.test(afterPrefix) && afterPrefix.length % 2 === 0) candidates.push(hexToBytes(afterPrefix));
+  try { candidates.push(Uint8Array.from(atob(afterPrefix), (c) => c.charCodeAt(0))); } catch (_) { /* não é base64 */ }
+
+  for (const key of candidates) {
+    const expected = await hmacB64(key, signed);
+    if (provided.some((p) => p === expected)) return true;
+  }
+  return false;
 }
 
 async function sha256(s: string): Promise<string> {
@@ -104,7 +127,7 @@ async function sendUtmify(order: any, items: any[], isTest: boolean) {
       utm_medium: tp.utm_medium || null, utm_content: tp.utm_content || null, utm_term: tp.utm_term || null,
     },
     commission: { totalPriceInCents: toBrl(order.total_cents), gatewayFeeInCents: 0, userCommissionInCents: toBrl(order.total_cents) },
-    isTest: isTest, // automático: pagamento real (live) conta; pagamento de teste do Stripe não polui
+    isTest: isTest,
   };
   try {
     const resp = await fetch("https://api.utmify.com.br/api-credentials/orders", {
@@ -112,7 +135,6 @@ async function sendUtmify(order: any, items: any[], isTest: boolean) {
       headers: {
         "Content-Type": "application/json",
         "x-api-token": UTMIFY_API_TOKEN,
-        // UTMify fica atrás do Cloudflare e bloqueia requisições sem UA de navegador (erro 1010)
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
       },
       body: JSON.stringify(body),
@@ -122,28 +144,32 @@ async function sendUtmify(order: any, items: any[], isTest: boolean) {
 }
 
 serve(async (req) => {
-  const sig = req.headers.get("stripe-signature") || "";
+  if (req.method === "OPTIONS") return new Response("ok");
   const raw = await req.text();
-  if (!(await verify(raw, sig))) return new Response("invalid signature", { status: 400 });
+  const headers = Object.fromEntries(req.headers); // chaves em minúsculas
+  if (!(await verify(raw, headers))) {
+    console.log("WHOP webhook invalid signature");
+    return new Response("invalid signature", { status: 400 });
+  }
 
   let event: any;
   try { event = JSON.parse(raw); } catch { return new Response("bad json", { status: 400 }); }
 
-  if (event.type === "payment_intent.succeeded") {
-    const pi = event.data.object;
-    const orderId = pi?.metadata?.order_id;
+  if (event.type === "payment.succeeded") {
+    const pay = event.data || {};
+    const orderId = pay.metadata && pay.metadata.order_id;
     if (orderId) {
       // 1) marca como paid
       await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`, {
         method: "PATCH", headers: { ...sb, Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "paid", stripe_payment_intent: pi.id, email: pi.receipt_email || undefined }),
+        body: JSON.stringify({ status: "paid", whop_payment_id: pay.id }),
       });
       // 2) busca pedido + itens
       const order = (await (await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}&select=*`, { headers: sb })).json())[0];
       const items = await (await fetch(`${SUPABASE_URL}/rest/v1/order_items?order_id=eq.${orderId}&select=name,quantity,unit_price_cents,products(slug)`, { headers: sb })).json();
+      console.log("WHOP webhook order", orderId, "found", !!order, "items", (items || []).length);
       // 3) dispara Facebook + UTMify
-      console.log("WEBHOOK order", orderId, "livemode", pi.livemode, "orderFound", !!order, "items", (items || []).length, "utm", JSON.stringify(order && order.tracking_params), "tokens", { fb: !!FB_CAPI_TOKEN, utmify: !!UTMIFY_API_TOKEN });
-      if (order) await Promise.allSettled([sendFacebook(order, items), sendUtmify(order, items, !pi.livemode)]);
+      if (order) await Promise.allSettled([sendFacebook(order, items), sendUtmify(order, items, false)]);
     }
   }
 

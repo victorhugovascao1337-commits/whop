@@ -321,32 +321,43 @@ function chkAddr(){
 
 updateTotals();
 
+var box = document.getElementById('whop-checkout');
 var btn = document.getElementById('pay-btn');
 var msg = document.getElementById('pay-msg');
-var checkoutLoaded = false;
+// o pagamento acontece dentro do embed do Whop — o botão antigo não é mais usado
+if(btn) btn.style.display = 'none';
 
-btn.addEventListener('click', async function(){
-  if(checkoutLoaded) return;
-  msg.className=''; msg.textContent='';
+var whopSig = '';      // assinatura dos dados usados na sessão atual (evita remontar à toa)
+var whopBusy = false;
+
+function payInfo(){
   var em = document.getElementById('email').value.trim();
-  var fn = document.getElementById('fname').value.trim();
   var a = chkAddr();
-  if(!em || !fn){ msg.className='err'; msg.textContent = 'Please enter your email and name.'; return; }
-  if(!a.line1 || !a.city || !a.zip){ msg.className='err'; msg.textContent = 'Please complete your shipping address.'; return; }
-  btn.disabled = true; btn.textContent = 'Loading payment...';
+  return { em: em, a: a, complete: !!(em && a.name && a.line1 && a.city && a.zip) };
+}
 
+function hint(html, cls){
+  box.innerHTML = '<div style="padding:14px 4px;color:var(--muted);font-size:14px;" class="'+(cls||'')+'">'+html+'</div>';
+}
+
+async function mountWhop(){
+  var info = payInfo();
+  if(!info.complete){ if(!box.querySelector('#whop-embedded-checkout')) hint('Enter your email and shipping address above to see the payment options.'); return; }
+  var sig = [info.em, info.a.name, info.a.line1, info.a.city, info.a.state, info.a.zip, shippingMethod].join('|');
+  if(sig === whopSig || whopBusy) return;     // nada mudou desde a última montagem
+  whopBusy = true; whopSig = sig;
+  hint('Loading payment…');
   try {
     var lineItems = cart.map(function(i){ return { slug: i.slug, quantity: i.qty, mult: i.mult || 1, variant: i.variant || '' }; });
     var r = await fetch(CREATE_INTENT_URL, {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON, 'Authorization':'Bearer ' + SUPABASE_ANON },
-      body: JSON.stringify({ items: lineItems, shipping: shippingMethod, email: em, address: a, utm: (window.Track ? Track.getUTMs() : {}) })
+      body: JSON.stringify({ items: lineItems, shipping: shippingMethod, email: info.em, address: info.a, utm: (window.Track ? Track.getUTMs() : {}) })
     });
     var d = await r.json();
-    if(!r.ok || d.error || !d.sessionId){ msg.className='err'; msg.textContent = d.error || ('Backend error (' + r.status + '). Is the create-checkout function deployed?'); btn.disabled=false; btn.textContent='Complete Purchase'; return; }
+    if(!r.ok || d.error || !d.sessionId){ hint(d.error || ('Could not load payment (' + r.status + ').'), 'err'); whopSig=''; whopBusy=false; return; }
 
     // monta o checkout embutido do Whop (o loader.js detecta a div via MutationObserver)
-    var box = document.getElementById('whop-checkout');
     box.innerHTML = '';
     var el = document.createElement('div');
     el.id = 'whop-embedded-checkout';
@@ -356,21 +367,28 @@ btn.addEventListener('click', async function(){
     el.setAttribute('data-whop-checkout-theme', 'light');
     el.style.minHeight = '420px';
     box.appendChild(el);
-    checkoutLoaded = true;
-    btn.style.display = 'none';
-    msg.className=''; msg.textContent = 'Complete your payment below to place the order.';
 
     // pré-preenche o e-mail no checkout do Whop assim que ele montar
     var tries = 0;
     var iv = setInterval(function(){
       tries++;
       if(window.wco && wco.setEmail){
-        try{ wco.setEmail('whop-embedded-checkout', em); }catch(e){}
+        try{ wco.setEmail('whop-embedded-checkout', info.em); }catch(e){}
         clearInterval(iv);
       } else if(tries > 60){ clearInterval(iv); }
     }, 250);
-  } catch(err){ msg.className='err'; msg.textContent = 'Error: ' + err.message; btn.disabled=false; btn.textContent='Complete Purchase'; }
+  } catch(err){ hint('Error: ' + err.message, 'err'); whopSig=''; }
+  whopBusy = false;
+}
+
+// monta/atualiza automaticamente quando o cliente preenche o formulário ou muda o frete
+['email','fname','lname','addr','city','state','zip','country'].forEach(function(id){
+  var el = document.getElementById(id); if(el) el.addEventListener('change', mountWhop);
 });
+document.querySelectorAll('input[name="ship"]').forEach(function(r){
+  r.addEventListener('change', function(){ setTimeout(mountWhop, 60); });
+});
+mountWhop();   // estado inicial (mostra a dica até o endereço ficar pronto)
 </script>
 <script>
 /* ---------- Address autocomplete (Photon / OpenStreetMap, grátis) ---------- */
